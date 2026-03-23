@@ -405,7 +405,13 @@ commands:
                 arity: { minimum: 1, maximum: 1 }
 
       - name: save
-        description: Create or update DNS records from stdin or file
+        description: |
+          Create or update DNS records from stdin or file.
+          Record format varies by type:
+          - A/AAAA: {"name":"@","type":"A","address":"192.0.2.1","ttl":300}
+          - CNAME: {"name":"www","type":"CNAME","cname":"example.com","ttl":300}
+          - MX: {"name":"@","type":"MX","exchange":"mail.example.com","priority":10,"ttl":300}
+          - TXT: {"name":"@","type":"TXT","text":"v=spf1 include:_spf.example.com ~all","ttl":300}
         arguments:
           - name: domain
             required: true

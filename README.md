@@ -76,6 +76,33 @@ spaceship dns list example.com
 # Save DNS records from a file
 spaceship dns save example.com --file records.json
 
+# DNS record format (records.json example):
+# Note: Different record types use different fields:
+# - A/AAAA records use "address"
+# - CNAME records use "cname"
+# - MX records use "exchange" and "priority"
+# - TXT records use "text"
+[
+  {
+    "name": "@",
+    "type": "A",
+    "address": "192.0.2.1",
+    "ttl": 300
+  },
+  {
+    "name": "www",
+    "type": "CNAME",
+    "cname": "example.com",
+    "ttl": 300
+  },
+  {
+    "name": "_acme-challenge",
+    "type": "CNAME",
+    "cname": "verification.example.net",
+    "ttl": 300
+  }
+]
+
 # Create a contact
 spaceship contacts save --first-name John --last-name Doe --email john@example.com \
   --address "123 Main St" --city "New York" --country US
