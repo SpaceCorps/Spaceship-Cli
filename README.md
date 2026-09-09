@@ -80,8 +80,12 @@ spaceship dns save example.com --file records.json
 # Note: Different record types use different fields:
 # - A/AAAA records use "address"
 # - CNAME records use "cname"
-# - MX records use "exchange" and "priority"
-# - TXT records use "text"
+# - MX records use "exchange" and "preference"
+# - TXT records use "value"
+#
+# "save" does not overwrite an existing record with the same name and type --
+# it fails with 422 "<TYPE> with host <name> already exists". To change a
+# record, delete it first, then save the new one.
 [
   {
     "name": "@",
@@ -102,6 +106,9 @@ spaceship dns save example.com --file records.json
     "ttl": 300
   }
 ]
+
+# Delete DNS records (match on name + type + value; ttl is not required)
+echo '[{"name":"www","type":"CNAME","cname":"example.com"}]' | spaceship dns delete example.com
 
 # Create a contact
 spaceship contacts save --first-name John --last-name Doe --email john@example.com \

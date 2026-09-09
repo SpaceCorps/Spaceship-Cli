@@ -25,7 +25,7 @@ public sealed class SaveCommand : SpaceshipCommand<SaveSettings>
         if (!string.IsNullOrWhiteSpace(settings.File))
             json = await System.IO.File.ReadAllTextAsync(settings.File);
         else if (!System.Console.IsInputRedirected)
-            throw new SpaceshipException("Provide records via stdin or --file. Expected JSON: {\"records\": [...]}");
+            throw new SpaceshipException("Provide records via stdin or --file. Expected JSON: {\"items\": [...]} or [ ... ]");
         else
             json = await System.Console.In.ReadToEndAsync();
 

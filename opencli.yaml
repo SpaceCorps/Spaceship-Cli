@@ -406,12 +406,14 @@ commands:
 
       - name: save
         description: |
-          Create or update DNS records from stdin or file.
+          Create DNS records from stdin or file. Accepts {"items": [...]} or a bare array.
+          Does not overwrite: saving over an existing name+type fails with 422
+          "<TYPE> with host <name> already exists". Delete the old record first.
           Record format varies by type:
           - A/AAAA: {"name":"@","type":"A","address":"192.0.2.1","ttl":300}
           - CNAME: {"name":"www","type":"CNAME","cname":"example.com","ttl":300}
-          - MX: {"name":"@","type":"MX","exchange":"mail.example.com","priority":10,"ttl":300}
-          - TXT: {"name":"@","type":"TXT","text":"v=spf1 include:_spf.example.com ~all","ttl":300}
+          - MX: {"name":"@","type":"MX","exchange":"mail.example.com","preference":10,"ttl":300}
+          - TXT: {"name":"@","type":"TXT","value":"v=spf1 include:_spf.example.com ~all","ttl":300}
         arguments:
           - name: domain
             required: true
@@ -425,7 +427,9 @@ commands:
                 arity: { minimum: 1, maximum: 1 }
 
       - name: delete
-        description: Delete DNS records from stdin or file
+        description: |
+          Delete DNS records from stdin or file. Accepts {"items": [...]} or a bare array;
+          the API is sent a bare array. Records match on name + type + value; ttl is ignored.
         arguments:
           - name: domain
             required: true

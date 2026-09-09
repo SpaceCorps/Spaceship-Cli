@@ -120,23 +120,54 @@ public sealed class SpaceshipApiClient : IDisposable
         {
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
-            if (root.TryGetProperty("message", out var msg))
-                return msg.GetString();
-            if (root.TryGetProperty("error", out var err))
-                return err.GetString();
-            if (root.TryGetProperty("detail", out var detail))
-                return detail.GetString();
-            if (root.TryGetProperty("title", out var title))
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            string? text = null;
+            foreach (var name in new[] { "message", "error", "detail", "title" })
             {
-                var text = title.GetString() ?? "Validation error";
-                if (root.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+                if (root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String)
                 {
-                    var details = errors.EnumerateObject()
-                        .SelectMany(p => p.Value.EnumerateArray().Select(v => $"{p.Name}: {v.GetString()}"));
-                    text += " - " + string.Join("; ", details);
+                    text = v.GetString();
+                    break;
                 }
-                return text;
             }
+
+            var details = new List<string>();
+
+            // Spaceship validation errors: {"detail": "...", "data": [{"field": "...", "details": "..."}]}
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in data.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object)
+                        continue;
+                    var field = item.TryGetProperty("field", out var f) ? f.GetString() : null;
+                    var message = item.TryGetProperty("details", out var d) ? d.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(message))
+                        continue;
+                    details.Add(string.IsNullOrWhiteSpace(field) ? message! : $"{field}: {message}");
+                }
+            }
+
+            // ASP.NET-style validation errors: {"title": "...", "errors": {"field": ["msg", ...]}}
+            if (root.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var p in errors.EnumerateObject())
+                {
+                    if (p.Value.ValueKind == JsonValueKind.Array)
+                        details.AddRange(p.Value.EnumerateArray()
+                            .Where(v => v.ValueKind == JsonValueKind.String)
+                            .Select(v => $"{p.Name}: {v.GetString()}"));
+                    else if (p.Value.ValueKind == JsonValueKind.String)
+                        details.Add($"{p.Name}: {p.Value.GetString()}");
+                }
+            }
+
+            if (details.Count > 0)
+                text = (text ?? "Validation error") + " - " + string.Join("; ", details);
+
+            return text;
         }
         catch { }
         return null;
