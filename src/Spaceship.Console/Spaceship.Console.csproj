@@ -11,7 +11,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>Spaceship.Console</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>nielsbosma</Authors>
     <Description>CLI for the Spaceship API, optimized for LLM agent consumption. YAML-first output.</Description>
     <PackageProjectUrl>https://github.com/nielsbosma/Spaceship.Console</PackageProjectUrl>

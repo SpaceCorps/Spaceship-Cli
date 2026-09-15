@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Spaceship.Console.Infrastructure;
@@ -108,8 +109,21 @@ public sealed class SpaceshipApiClient : IDisposable
             throw new SpaceshipApiException(message, response.StatusCode >= HttpStatusCode.InternalServerError ? 2 : 1);
         }
 
+        // 202 responses (register, renew, restore, transfer) carry the operation to poll only in a header.
+        var operationId = response.Headers.TryGetValues("spaceship-async-operationid", out var ids)
+            ? ids.FirstOrDefault()
+            : null;
+
         if (string.IsNullOrWhiteSpace(body))
-            return JsonSerializer.SerializeToElement(new { success = true });
+            return operationId is null
+                ? JsonSerializer.SerializeToElement(new { success = true })
+                : JsonSerializer.SerializeToElement(new { success = true, asyncOperationId = operationId });
+
+        if (operationId is not null && JsonNode.Parse(body) is JsonObject node)
+        {
+            node["asyncOperationId"] ??= operationId;
+            return JsonSerializer.SerializeToElement(node);
+        }
 
         return JsonSerializer.Deserialize<JsonElement>(body);
     }
@@ -181,8 +195,10 @@ public sealed class SpaceshipApiClient : IDisposable
 
     private void LogResponse(HttpResponseMessage response)
     {
-        if (_verbose)
-            System.Console.Error.WriteLine($"<< {(int)response.StatusCode} {response.StatusCode}");
+        if (!_verbose)
+            return;
+        var operation = response.Headers.TryGetValues("spaceship-operation-id", out var ids) ? $" (operation {ids.First()})" : "";
+        System.Console.Error.WriteLine($"<< {(int)response.StatusCode} {response.StatusCode}{operation}");
     }
 
     public void Dispose() => _http.Dispose();
