@@ -11,7 +11,7 @@ public sealed class DeleteSettings : GlobalSettings
     public required string Domain { get; set; }
 }
 
-[Description("Delete a domain")]
+[Description("Delete a domain (the API currently returns 501 Not Implemented)")]
 public sealed class DeleteCommand : SpaceshipCommand<DeleteSettings>
 {
     protected override async Task<object> ExecuteAsync(SpaceshipApiClient client, DeleteSettings settings)

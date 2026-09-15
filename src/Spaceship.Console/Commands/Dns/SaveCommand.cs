@@ -14,28 +14,31 @@ public sealed class SaveSettings : GlobalSettings
     [CommandOption("--file <FILE>")]
     [Description("JSON file with records array (or pipe via stdin)")]
     public string? File { get; set; }
+
+    [CommandOption("--force")]
+    [Description("Turn off the API's conflict checks and force the zone update")]
+    public bool Force { get; set; }
 }
 
-[Description("Save DNS records")]
+[Description("Add DNS records, or update the TTL of matching ones")]
 public sealed class SaveCommand : SpaceshipCommand<SaveSettings>
 {
     protected override async Task<object> ExecuteAsync(SpaceshipApiClient client, SaveSettings settings)
     {
-        string json;
-        if (!string.IsNullOrWhiteSpace(settings.File))
-            json = await System.IO.File.ReadAllTextAsync(settings.File);
-        else if (!System.Console.IsInputRedirected)
-            throw new SpaceshipException("Provide records via stdin or --file. Expected JSON: {\"records\": [...]}");
-        else
-            json = await System.Console.In.ReadToEndAsync();
+        var body = await JsonInput.ReadAsync(settings.File, "[ ... ] or {\"items\": [...]}");
 
-        var body = JsonSerializer.Deserialize<JsonElement>(json);
-        // API expects {"items": [...]} — wrap bare arrays automatically
-        object payload;
+        // PUT expects {"items": [...], "force": bool} — wrap bare arrays automatically
+        Dictionary<string, object> payload;
         if (body.ValueKind == JsonValueKind.Array)
-            payload = new { items = ToObject(body) };
+            payload = new Dictionary<string, object> { ["items"] = ToObject(body) };
+        else if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("items", out _))
+            payload = (Dictionary<string, object>)ToObject(body);
         else
-            payload = ToObject(body);
+            throw new SpaceshipException("Expected a JSON array of records, or {\"items\": [...]}.");
+
+        if (settings.Force)
+            payload["force"] = true;
+
         var result = await client.PutAsync($"/dns/records/{settings.Domain}", payload);
         return ToObject(result);
     }

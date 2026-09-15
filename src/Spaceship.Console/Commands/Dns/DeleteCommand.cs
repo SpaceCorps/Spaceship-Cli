@@ -25,17 +25,22 @@ public sealed class DeleteCommand : SpaceshipCommand<DeleteSettings>
         if (!string.IsNullOrWhiteSpace(settings.File))
             json = await System.IO.File.ReadAllTextAsync(settings.File);
         else if (!System.Console.IsInputRedirected)
-            throw new SpaceshipException("Provide records via stdin or --file. Expected JSON: {\"records\": [...]}");
+            throw new SpaceshipException("Provide records via stdin or --file. Expected JSON: [ ... ] or {\"items\": [...]}");
         else
             json = await System.Console.In.ReadToEndAsync();
 
         var body = JsonSerializer.Deserialize<JsonElement>(json);
-        // API expects {"items": [...]} — wrap bare arrays automatically
+        // Unlike save's PUT, this endpoint expects a bare array — wrapping it in
+        // {"items": [...]} is rejected with 422. Accept either shape, always send the array.
         object payload;
         if (body.ValueKind == JsonValueKind.Array)
-            payload = new { items = ToObject(body) };
-        else
             payload = ToObject(body);
+        else if (body.ValueKind == JsonValueKind.Object
+                 && body.TryGetProperty("items", out var items)
+                 && items.ValueKind == JsonValueKind.Array)
+            payload = ToObject(items);
+        else
+            throw new SpaceshipException("Expected a JSON array of records, or {\"items\": [...]}.");
         var result = await client.DeleteAsync($"/dns/records/{settings.Domain}", payload);
         return ToObject(result);
     }

@@ -30,6 +30,26 @@ public sealed class SaveSettings : GlobalSettings
     [Description("ISO 3166-1 alpha-2 country code")]
     public required string Country { get; set; }
 
+    [CommandOption("--phone <PHONE>")]
+    [Description("Phone number as +<country code>.<number>, e.g. +46.701234567")]
+    public required string Phone { get; set; }
+
+    [CommandOption("--phone-ext <EXT>")]
+    [Description("Phone extension")]
+    public string? PhoneExt { get; set; }
+
+    [CommandOption("--fax <FAX>")]
+    [Description("Fax number, same format as --phone")]
+    public string? Fax { get; set; }
+
+    [CommandOption("--fax-ext <EXT>")]
+    [Description("Fax extension")]
+    public string? FaxExt { get; set; }
+
+    [CommandOption("--tax-number <NUMBER>")]
+    [Description("Tax number")]
+    public string? TaxNumber { get; set; }
+
     [CommandOption("--organization <ORG>")]
     [Description("Organization name")]
     public string? Organization { get; set; }
@@ -52,6 +72,9 @@ public sealed class SaveCommand : SpaceshipCommand<SaveSettings>
 {
     protected override async Task<object> ExecuteAsync(SpaceshipApiClient client, SaveSettings settings)
     {
+        if (string.IsNullOrWhiteSpace(settings.Phone))
+            throw new SpaceshipException("--phone is required.");
+
         var body = new Dictionary<string, object?>
         {
             ["firstName"] = settings.FirstName,
@@ -60,6 +83,11 @@ public sealed class SaveCommand : SpaceshipCommand<SaveSettings>
             ["address1"] = settings.Address,
             ["city"] = settings.City,
             ["country"] = settings.Country,
+            ["phone"] = settings.Phone,
+            ["phoneExt"] = settings.PhoneExt,
+            ["fax"] = settings.Fax,
+            ["faxExt"] = settings.FaxExt,
+            ["taxNumber"] = settings.TaxNumber,
             ["organization"] = settings.Organization,
             ["address2"] = settings.Address2,
             ["stateProvince"] = settings.State,

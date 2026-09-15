@@ -2,11 +2,12 @@ opencli: "0.1"
 
 info:
   title: spaceship
-  version: "1.0.0"
+  version: "1.1.0"
   summary: CLI for the Spaceship domain registrar API
   description: >
     A command-line interface for the Spaceship API that manages domains,
-    DNS records, contacts, SellerHub listings, and async operations.
+    personal nameservers, DNS records, contacts, SellerHub listings and SafePay,
+    Hyperlift applications, and async operations.
     Designed for automation and LLM-friendly output (YAML-first).
   contact:
     url: https://github.com/nielsbosma/Spaceship.Console
@@ -163,7 +164,7 @@ commands:
                 arity: { minimum: 1, maximum: 1 }
 
       - name: delete
-        description: Delete a domain
+        description: Delete a domain (the API currently returns 501 Not Implemented)
         arguments:
           - name: domain
             required: true
@@ -284,6 +285,60 @@ commands:
                   - public
                   - high
 
+      - name: email-protection
+        description: Enable or disable email protection (contact form)
+        arguments:
+          - name: domain
+            required: true
+            description: Domain name
+        options:
+          - name: --enable
+            description: Enable the contact form
+          - name: --disable
+            description: Disable the contact form
+
+      - name: personal-ns
+        description: Personal nameservers (glue records)
+        commands:
+          - name: list
+            description: List personal nameservers
+            arguments:
+              - name: domain
+                required: true
+                description: Domain name
+          - name: save
+            description: Create or update a personal nameserver
+            arguments:
+              - name: domain
+                required: true
+                description: Domain name
+              - name: host
+                required: true
+                description: Host label or FQDN, e.g. ns1 or ns1.example.com
+            options:
+              - name: --ips
+                required: true
+                description: Comma-separated IPv4/IPv6 addresses (1-16)
+                arguments:
+                  - name: ips
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
+              - name: --rename
+                description: New host name; the old name stops resolving
+                arguments:
+                  - name: host
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
+          - name: delete
+            description: Delete a personal nameserver
+            arguments:
+              - name: domain
+                required: true
+                description: Domain name
+              - name: host
+                required: true
+                description: Host label or FQDN
+
       - name: auth-code
         description: Get transfer authorization code
         arguments:
@@ -372,33 +427,40 @@ commands:
             description: Domain name
         options:
           - name: --type
-            description: Filter by record type
+            description: >
+              Only records of this type (A, AAAA, CNAME, MX, TXT, SRV, CAA, NS, ALIAS, PTR,
+              HTTPS, SVCB, TLSA). The API has no filter, so this pages through the whole zone.
             arguments:
               - name: type
                 required: true
                 arity: { minimum: 1, maximum: 1 }
-                acceptedValues:
-                  - A
-                  - AAAA
-                  - CNAME
-                  - MX
-                  - TXT
-                  - SRV
-                  - NS
           - name: --name
-            description: Filter by record name
+            description: Only records with this name, e.g. www or @ (pages through the whole zone)
             arguments:
               - name: name
                 required: true
                 arity: { minimum: 1, maximum: 1 }
+          - name: --all
+            description: Fetch every page instead of one
+          - name: --order-by
+            description: Sort field
+            arguments:
+              - name: field
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+                acceptedValues:
+                  - type
+                  - -type
+                  - name
+                  - -name
           - name: --take
-            description: Number of items to return (1-100)
+            description: Records per page (1-500, default 100)
             arguments:
               - name: count
                 required: true
                 arity: { minimum: 1, maximum: 1 }
           - name: --skip
-            description: Number of items to skip
+            description: Number of records to skip
             arguments:
               - name: count
                 required: true
@@ -406,12 +468,19 @@ commands:
 
       - name: save
         description: |
-          Create or update DNS records from stdin or file.
+          Add DNS records, or update the TTL of matching ones, from stdin or file.
+          Accepts {"items": [...]} or a bare array. This is not an upsert: a record with the
+          same name and type but a different value is added next to the existing one
+          (for CNAMEs that leaves duplicates) or rejected with 422, depending on the API's
+          conflict checks. To change a value, delete the old record first, then save.
           Record format varies by type:
           - A/AAAA: {"name":"@","type":"A","address":"192.0.2.1","ttl":300}
           - CNAME: {"name":"www","type":"CNAME","cname":"example.com","ttl":300}
-          - MX: {"name":"@","type":"MX","exchange":"mail.example.com","priority":10,"ttl":300}
-          - TXT: {"name":"@","type":"TXT","text":"v=spf1 include:_spf.example.com ~all","ttl":300}
+          - MX: {"name":"@","type":"MX","exchange":"mail.example.com","preference":10,"ttl":300}
+          - TXT: {"name":"@","type":"TXT","value":"v=spf1 include:_spf.example.com ~all","ttl":300}
+          - SRV: service, protocol, priority, weight, port, target
+          - CAA: flag, tag, value · NS: nameserver · ALIAS: aliasName · PTR: pointer
+          - HTTPS/SVCB: svcPriority, targetName, svcParams · TLSA: port, protocol, usage, selector, matching, associationData
         arguments:
           - name: domain
             required: true
@@ -423,9 +492,13 @@ commands:
               - name: path
                 required: true
                 arity: { minimum: 1, maximum: 1 }
+          - name: --force
+            description: Turn off the API's conflict checks and force the zone update
 
       - name: delete
-        description: Delete DNS records from stdin or file
+        description: |
+          Delete DNS records from stdin or file. Accepts {"items": [...]} or a bare array;
+          the API is sent a bare array. Records match on name + type + value; ttl is ignored.
         arguments:
           - name: domain
             required: true
@@ -511,6 +584,37 @@ commands:
               - name: code
                 required: true
                 arity: { minimum: 1, maximum: 1 }
+          - name: --phone
+            required: true
+            description: Phone number as +<country code>.<number>, e.g. +46.701234567
+            arguments:
+              - name: phone
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --phone-ext
+            description: Phone extension
+            arguments:
+              - name: ext
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --fax
+            description: Fax number, same format as --phone
+            arguments:
+              - name: fax
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --fax-ext
+            description: Fax extension
+            arguments:
+              - name: ext
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --tax-number
+            description: Tax number
+            arguments:
+              - name: number
+                required: true
+                arity: { minimum: 1, maximum: 1 }
 
       - name: get
         description: Get contact details
@@ -518,6 +622,25 @@ commands:
           - name: id
             required: true
             description: Contact ID
+
+      - name: attributes
+        description: Contact attributes (registry-specific data such as tax IDs)
+        commands:
+          - name: save
+            description: Save attributes from stdin or file ({"type":"us"|"ca", ...}); returns the attributes ID
+            options:
+              - name: --file
+                description: Path to JSON file (reads stdin if omitted)
+                arguments:
+                  - name: path
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
+          - name: get
+            description: Get contact attributes
+            arguments:
+              - name: id
+                required: true
+                description: Contact ID
 
   # ── sellerhub ──────────────────────────────────────────
   - name: sellerhub
@@ -542,9 +665,9 @@ commands:
       - name: get
         description: Get SellerHub domain details
         arguments:
-          - name: id
+          - name: domain
             required: true
-            description: SellerHub domain ID
+            description: Listed domain name
 
       - name: create
         description: Create a SellerHub listing from stdin or file
@@ -559,9 +682,9 @@ commands:
       - name: update
         description: Update a SellerHub listing from stdin or file
         arguments:
-          - name: id
+          - name: domain
             required: true
-            description: SellerHub domain ID
+            description: Listed domain name
         options:
           - name: --file
             description: Path to JSON file with fields to update (reads stdin if omitted)
@@ -573,12 +696,12 @@ commands:
       - name: delete
         description: Delete a SellerHub listing
         arguments:
-          - name: id
+          - name: domain
             required: true
-            description: SellerHub domain ID
+            description: Listed domain name
 
       - name: checkout
-        description: Checkout a SellerHub domain from stdin or file
+        description: Create a checkout link for a listed domain from stdin or file
         options:
           - name: --file
             description: Path to JSON file with checkout details (reads stdin if omitted)
@@ -588,18 +711,234 @@ commands:
                 arity: { minimum: 1, maximum: 1 }
 
       - name: verification
-        description: Get verification records for a SellerHub domain
+        description: >
+          Get ownership verification record options. Pick any one option (OR);
+          within it, create all records (AND).
+
+      - name: sold
+        description: List sold SellerHub domains (cursor-paged)
+        options:
+          - name: --take
+            description: Number of items to return (1-100)
+            arguments:
+              - name: count
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --cursor
+            description: Cursor from the previous page
+            arguments:
+              - name: cursor
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --from
+            description: Only sales at or after this time (ISO 8601)
+            arguments:
+              - name: datetime
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --to
+            description: Only sales before this time (ISO 8601)
+            arguments:
+              - name: datetime
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+
+      - name: safepay
+        description: SafePay (escrow) transactions
+        commands:
+          - name: list
+            description: List SafePay transactions you are a party to
+            options:
+              - name: --take
+                description: Number of items to return (1-100)
+                arguments:
+                  - name: count
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
+              - name: --skip
+                description: Number of items to skip
+                arguments:
+                  - name: count
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
+          - name: get
+            description: Get a SafePay transaction
+            arguments:
+              - name: transaction-id
+                required: true
+                description: SafePay transaction ID
+          - name: create
+            description: Create a SafePay transaction from stdin or file
+            options:
+              - name: --file
+                description: Path to JSON file (reads stdin if omitted)
+                arguments:
+                  - name: path
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
+
+  # ── hyperlift ──────────────────────────────────────────
+  - name: hyperlift
+    description: Hyperlift application hosting
+    commands:
+      - name: list
+        description: List applications
+        options:
+          - name: --take
+            description: Number of items to return (1-100)
+            arguments:
+              - name: count
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --skip
+            description: Number of items to skip
+            arguments:
+              - name: count
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+      - name: get
+        description: Get an application
         arguments:
           - name: id
             required: true
-            description: SellerHub domain ID
+            description: Application ID
+      - name: build
+        description: Start a build
+        arguments:
+          - name: id
+            required: true
+            description: Application ID
+      - name: build-logs
+        description: Get build logs (cursor-paged; finished is true when the build is done)
+        arguments:
+          - name: id
+            required: true
+            description: Application ID
+        options:
+          - name: --take
+            description: Number of lines (1-100, default 100)
+            arguments:
+              - name: count
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --cursor
+            description: Cursor from the previous page
+            arguments:
+              - name: cursor
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+      - name: logs
+        description: Get runtime logs (cursor-paged)
+        arguments:
+          - name: id
+            required: true
+            description: Application ID
+        options:
+          - name: --take
+            description: Number of lines (1-100, default 100)
+            arguments:
+              - name: count
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --cursor
+            description: Cursor from the previous page
+            arguments:
+              - name: cursor
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+      - name: metrics
+        description: Get application metrics
+        arguments:
+          - name: id
+            required: true
+            description: Application ID
+        options:
+          - name: --start
+            required: true
+            description: Start of the range, UTC ISO 8601
+            arguments:
+              - name: datetime
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --end
+            required: true
+            description: End of the range, UTC ISO 8601
+            arguments:
+              - name: datetime
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --interval
+            required: true
+            description: Bucket size, number + s|m|h|d, e.g. 10m (max 1500 buckets)
+            arguments:
+              - name: interval
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+          - name: --metrics
+            required: true
+            description: >
+              Comma-separated: memoryUsageBytes, cpuUsagePercentage, networkReceiveRateBytes,
+              networkTransmitRateBytes, ephemeralStorageUsedMebibytes, persistentStorageUsedMebibytes
+            arguments:
+              - name: metrics
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+      - name: restart
+        description: Restart an application
+        arguments:
+          - name: id
+            required: true
+            description: Application ID
+      - name: scale
+        description: Start or stop an application
+        arguments:
+          - name: id
+            required: true
+            description: Application ID
+        options:
+          - name: --scale
+            required: true
+            description: 0 stops the application, 1 starts it
+            arguments:
+              - name: scale
+                required: true
+                arity: { minimum: 1, maximum: 1 }
+                acceptedValues:
+                  - "0"
+                  - "1"
+      - name: env
+        description: Environment variables
+        commands:
+          - name: get
+            description: Get environment variables
+            arguments:
+              - name: id
+                required: true
+                description: Application ID
+          - name: set
+            description: >
+              Replace ALL environment variables from stdin or file ({"NAME": "value"} or
+              {"items": {...}}, max 20). Any variable left out is deleted.
+            arguments:
+              - name: id
+                required: true
+                description: Application ID
+            options:
+              - name: --file
+                description: Path to JSON file (reads stdin if omitted)
+                arguments:
+                  - name: path
+                    required: true
+                    arity: { minimum: 1, maximum: 1 }
 
   # ── operations ─────────────────────────────────────────
   - name: operations
     description: Async operation tracking
     commands:
       - name: get
-        description: Get async operation status
+        description: >
+          Get async operation status (pending, success or failed). register, renew,
+          restore and transfer print the ID as asyncOperationId.
         arguments:
           - name: id
             required: true

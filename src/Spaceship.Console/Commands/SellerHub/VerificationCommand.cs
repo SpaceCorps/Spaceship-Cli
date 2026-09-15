@@ -4,19 +4,12 @@ using Spectre.Console.Cli;
 
 namespace Spaceship.Console.Commands.SellerHub;
 
-public sealed class VerificationSettings : GlobalSettings
+[Description("Get SellerHub ownership verification record options")]
+public sealed class VerificationCommand : SpaceshipCommand<GlobalSettings>
 {
-    [CommandArgument(0, "<id>")]
-    [Description("SellerHub domain ID")]
-    public required string Id { get; set; }
-}
-
-[Description("Get SellerHub verification records")]
-public sealed class VerificationCommand : SpaceshipCommand<VerificationSettings>
-{
-    protected override async Task<object> ExecuteAsync(SpaceshipApiClient client, VerificationSettings settings)
+    protected override async Task<object> ExecuteAsync(SpaceshipApiClient client, GlobalSettings settings)
     {
-        var result = await client.GetAsync($"/sellerhub/domains/{settings.Id}/verification");
+        var result = await client.GetAsync("/sellerhub/verification-records");
         return ToObject(result);
     }
 }
