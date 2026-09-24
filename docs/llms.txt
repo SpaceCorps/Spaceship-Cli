@@ -1,0 +1,69 @@
+# Spaceship CLI
+
+> A blazing fast native command-line tool and agent interface for the Spaceship domain registrar and cloud API (v1). Built in Rust Edition 2024 for developers and autonomous AI agents.
+
+## When to Use This CLI
+
+Use the `spaceship` CLI whenever you need to:
+- **Search and register domains:** Check domain availability, batch check up to 20 domains, register domains, renew, restore, and transfer domains.
+- **Configure nameservers and personal glue records:** Manage authoritative nameservers (basic or custom) and personal nameservers (`personal-ns`).
+- **Manage DNS records:** Add, update, query, filter, and delete DNS records (A, AAAA, CNAME, MX, TXT, SRV, CAA, NS, ALIAS, HTTPS, SVCB, TLSA).
+- **Manage domain contacts:** Maintain registrant, administrative, technical, and billing contacts as well as registry-specific attributes.
+- **Operate SellerHub and SafePay:** List domains for sale, manage SellerHub listings, generate checkout links, retrieve ownership verification records, and execute SafePay escrow transactions.
+- **Manage Hyperlift applications:** Deploy and inspect Hyperlift applications, view build and runtime logs, scale apps, inspect metrics, and update environment variables.
+- **Track async operations:** Poll asynchronous operations (`asyncOperationId`) returned by domain registration, renewal, restore, and transfer endpoints.
+
+Do NOT use this tool if:
+- You need a visual browser-based dashboard (use https://spaceship.com instead).
+- You are trying to manage non-Spaceship registrar resources.
+
+## Core Agent Operating Principles
+
+1. **Authentication:** Provide credentials via named accounts in the OS keystore (`spaceship login` or `spaceship accounts add`), environment variables (`SPACESHIP_API_KEY` and `SPACESHIP_API_SECRET`), or command-line flags (`--api-key` and `--api-secret`).
+2. **Account Scoping:** When using multiple accounts, pass `--account <name>` (short `-a <name>`) to ensure commands target the intended account.
+3. **Machine-Readable Outputs:** Pass `--json` to output raw structured JSON for tool loops and `jq` processing. Default terminal output is YAML.
+4. **Stable Error Exit Codes:**
+   - `0`: Success (`ok`)
+   - `1`: General error
+   - `2`: Network / server error (retry once)
+   - `3`: `auth_required` (check credentials and scopes)
+   - `4`: `not_found`
+   - `5`: `rate_limited` (back off before retrying)
+   - `6`: `invalid_input` (arguments or payload rejected)
+   - `7`: `no_account` (no account specified)
+
+## Key Command Patterns
+
+### Domains
+- `spaceship domains list -a <acct> --json`: List domains.
+- `spaceship domains get <domain> -a <acct> --json`: Inspect domain details.
+- `spaceship domains check <domain> -a <acct> --json`: Check availability.
+- `spaceship domains check-batch "d1.com,d2.com" -a <acct> --json`: Batch check up to 20 domains.
+- `spaceship domains register <domain> --registrant <id> -a <acct> --json`: Register a domain (async).
+- `spaceship domains personal-ns list <domain> -a <acct> --json`: List glue records.
+- `spaceship domains personal-ns save <domain> <host> --ips <ip1,ip2> -a <acct>`: Save glue record.
+
+### DNS Records
+- `spaceship dns list <domain> -a <acct> --json`: List DNS records.
+- `spaceship dns list <domain> --type CNAME --name www -a <acct> --json`: Filter records across zone.
+- `spaceship dns save <domain> --file records.json -a <acct>`: Add or update DNS records.
+- `spaceship dns delete <domain> --file records.json -a <acct>`: Delete matching DNS records.
+
+### Contacts
+- `spaceship contacts save --first-name <f> --last-name <l> --email <e> --phone <p> ... -a <acct>`: Create contact.
+- `spaceship contacts get <id> -a <acct> --json`: Retrieve contact details.
+
+### SellerHub & SafePay
+- `spaceship sellerhub list -a <acct> --json`: List marketplace listings.
+- `spaceship sellerhub verification -a <acct> --json`: Get ownership verification options.
+- `spaceship sellerhub safepay list -a <acct> --json`: List SafePay transactions.
+
+### Hyperlift & Operations
+- `spaceship hyperlift list -a <acct> --json`: List hosted applications.
+- `spaceship hyperlift scale <id> --scale 1 -a <acct>`: Start application.
+- `spaceship operations get <id> -a <acct> --json`: Check async operation status.
+
+## Documentation Links
+- Full Website: https://spacecorps.github.io/Spaceship-Cli/
+- Exhaustive LLM Manual: https://spacecorps.github.io/Spaceship-Cli/llms-full.txt
+- Spaceship API Docs: https://docs.spaceship.dev/

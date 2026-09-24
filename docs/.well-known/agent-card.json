@@ -1,0 +1,17 @@
+{
+  "name": "Spaceship CLI Agent",
+  "description": "Agent interface and domain/DNS automation tool for the Spaceship API.",
+  "url": "https://spacecorps.github.io/Spaceship-Cli/",
+  "version": "1.0.0",
+  "capabilities": ["domains", "dns", "contacts", "sellerhub", "hyperlift", "operations"],
+  "skills": [
+    {
+      "name": "spaceship-cli",
+      "url": "https://spacecorps.github.io/Spaceship-Cli/llms.txt"
+    }
+  ],
+  "contact": {
+    "email": "contact@spacecorps.dev",
+    "url": "https://spacecorps.github.io/Spaceship-Cli/contact.html"
+  }
+}

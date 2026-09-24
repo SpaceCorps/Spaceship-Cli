@@ -1,0 +1,112 @@
+# Spaceship CLI - Comprehensive Agent Reference Manual
+
+> An exhaustive technical manual for autonomous agents driving the Spaceship CLI (`spaceship`). Covers all endpoints of the Spaceship REST API v1.
+
+## When To Use This Tool
+- Automated registration, renewal, transfer, and lifecycle management of domain names.
+- Managing authoritative DNS zones, nameservers, and glue records (personal nameservers).
+- Batch domain availability checks for generative naming algorithms.
+- Automating domain brokerage, SellerHub marketplace listings, and SafePay escrow transactions.
+- Continuous deployment, scaling, and observability for Hyperlift applications.
+
+## Exit Codes and Error Envelopes
+
+Every error response on stderr conforms to the standard envelope structure:
+```json
+{
+  "code": "error_code_string",
+  "message": "Human readable summary",
+  "detail": "Extended debugging context",
+  "remediation": "Exact command or action needed to fix"
+}
+```
+
+Exit code numbers match the error code contract:
+- `0`: Success (`ok`)
+- `1`: General error (`error`)
+- `2`: Network / transport failure (`network`)
+- `3`: `auth_required` — Key/secret missing, rejected, or insufficient scope
+- `4`: `not_found` — Domain or resource ID does not exist
+- `5`: `rate_limited` — API rate limit reached (HTTP 429)
+- `6`: `invalid_input` — Invalid arguments or validation error
+- `7`: `no_account` — `--account <name>` or credentials were not specified
+
+## Safety Guardrails & Operational Protocols
+
+1. **Async Operations**:
+   Endpoints returning HTTP 202 (domain registrations, renewals, restores, transfers) return an `asyncOperationId`.
+   Agents MUST poll `spaceship operations get <id>` until the status is terminal (`completed` or `failed`).
+2. **DNS Zone Updates**:
+   `spaceship dns save` adds records or updates TTLs for matching entries. It does NOT automatically overwrite values for existing names/types unless `--force` is supplied. To change a target/address, delete the previous record first or pass `--force`.
+3. **Account Scoping**:
+   Use `--account <name>` (`-a <name>`) when managing multiple Spaceship accounts. Alternatively, configure `SPACESHIP_API_KEY` and `SPACESHIP_API_SECRET` in environment variables.
+4. **Secrets Isolation**:
+   API keys and secrets are stored in the host operating system's hardware-backed credential vault (macOS Keychain, Windows DPAPI, Linux Secret Service).
+
+## Complete Command Reference
+
+### Domains
+- `spaceship domains list [--take <1-100>] [--skip <n>] [--order-by <field>]`: List registered domains.
+- `spaceship domains get <domain>`: Retrieve domain details (status, dates, privacy).
+- `spaceship domains check <domain>`: Query domain availability.
+- `spaceship domains check-batch <domains>`: Comma-separated list of up to 20 domains.
+- `spaceship domains register <domain> --registrant <id> [--years <1-10>] [--auto-renew] [--privacy public|high]`: Register domain.
+- `spaceship domains renew <domain> --expiration-date <date> [--years <1-10>]`: Renew domain.
+- `spaceship domains restore <domain>`: Restore deleted domain.
+- `spaceship domains autorenew <domain> --enable|--disable`: Toggle auto-renewal.
+- `spaceship domains nameservers <domain> --provider basic|custom [--hosts <h1,h2>]`: Configure nameservers.
+- `spaceship domains contacts <domain> --registrant <id> [--admin <id>] [--tech <id>] [--billing <id>]`: Update domain contacts.
+- `spaceship domains privacy <domain> --level public|high`: Update privacy settings.
+- `spaceship domains email-protection <domain> --enable|--disable`: Toggle contact form email protection.
+- `spaceship domains auth-code <domain>`: Retrieve transfer authorization code.
+- `spaceship domains transfer <domain> --registrant <id> [--auth-code <code>]`: Initiate domain transfer.
+- `spaceship domains transfer-status <domain>`: Check transfer status.
+- `spaceship domains transfer-lock <domain> --lock|--unlock`: Update transfer lock.
+- `spaceship domains personal-ns list <domain>`: List glue records.
+- `spaceship domains personal-ns save <domain> <host> --ips <ip1,ip2> [--rename <host>]`: Create or update glue record.
+- `spaceship domains personal-ns delete <domain> <host>`: Remove glue record.
+
+### DNS Records
+- `spaceship dns list <domain> [--take <1-500>] [--skip <n>] [--all] [--type <type>] [--name <name>]`: Query zone records.
+- `spaceship dns save <domain> [--file <path>] [--force]`: Add or update records. JSON format:
+  ```json
+  [
+    {"name": "@", "type": "A", "address": "192.0.2.1", "ttl": 300},
+    {"name": "www", "type": "CNAME", "cname": "example.com", "ttl": 300}
+  ]
+  ```
+- `spaceship dns delete <domain> [--file <path>]`: Delete records by exact match.
+
+### Contacts
+- `spaceship contacts save --first-name <f> --last-name <l> --email <e> --address <a> --city <c> --country <co> --phone <p>`: Save contact.
+- `spaceship contacts get <id>`: Get contact details.
+- `spaceship contacts attributes save [--file <path>]`: Save registry-specific attributes.
+- `spaceship contacts attributes get <id>`: Retrieve attributes.
+
+### SellerHub & SafePay
+- `spaceship sellerhub list [--take <n>] [--skip <n>]`: List marketplace domains.
+- `spaceship sellerhub get <domain>`: Get listing details.
+- `spaceship sellerhub create [--file <path>]`: Create domain listing.
+- `spaceship sellerhub update <domain> [--file <path>]`: Update listing.
+- `spaceship sellerhub delete <domain>`: Remove listing.
+- `spaceship sellerhub checkout [--file <path>]`: Create checkout link.
+- `spaceship sellerhub verification`: Query TXT/CNAME ownership verification options.
+- `spaceship sellerhub sold [--take <n>] [--cursor <c>] [--from <dt>] [--to <dt>]`: Query sales reports.
+- `spaceship sellerhub safepay list [--take <n>] [--skip <n>]`: List escrow transactions.
+- `spaceship sellerhub safepay get <transaction-id>`: Inspect transaction.
+- `spaceship sellerhub safepay create [--file <path>]`: Initiate SafePay transaction.
+
+### Hyperlift
+- `spaceship hyperlift list [--take <n>] [--skip <n>]`: List applications.
+- `spaceship hyperlift get <id>`: Inspect application.
+- `spaceship hyperlift build <id>`: Trigger build.
+- `spaceship hyperlift build-logs <id> [--take <n>] [--cursor <c>]`: Stream build logs.
+- `spaceship hyperlift logs <id> [--take <n>] [--cursor <c>]`: Stream container runtime logs.
+- `spaceship hyperlift metrics <id> --start <dt> --end <dt> --interval <int> --metrics <m>`: Query compute metrics.
+- `spaceship hyperlift restart <id>`: Restart app.
+- `spaceship hyperlift scale <id> --scale 0|1`: Stop (0) or start (1) app.
+- `spaceship hyperlift env get <id>`: Inspect environment variables.
+- `spaceship hyperlift env set <id> [--file <path>]`: Atomically replace environment variables.
+
+### Operations
+- `spaceship operations get <id>`: Poll status of an async operation.

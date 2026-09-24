@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "spaceship-cli",
+      "description": "Manage domains, DNS records, contacts, SellerHub listings, SafePay escrow, and Hyperlift applications via Spaceship Rust CLI.",
+      "type": "skill-md",
+      "url": "https://spacecorps.github.io/Spaceship-Cli/llms.txt"
+    }
+  ]
+}
