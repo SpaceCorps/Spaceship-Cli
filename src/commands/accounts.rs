@@ -90,7 +90,7 @@ fn add(
 
     if !no_verify {
         let client = Client::new(&api_key, &api_secret, false);
-        let _ = client.get("domains?take=1")?;
+        let _ = client.get("domains?take=1&skip=0")?;
     }
 
     store.set(&secrets::account_key(&name), &SecretEntry { api_key: api_key.clone(), api_secret })?;
@@ -120,7 +120,7 @@ fn list(check: bool) -> Result<()> {
             match store.get(&secrets::account_key(name))? {
                 Some(creds) => {
                     let client = Client::new(&creds.api_key, &creds.api_secret, false);
-                    match client.get("domains?take=1") {
+                    match client.get("domains?take=1&skip=0") {
                         Ok(_) => "valid",
                         Err(e) if e.code == crate::error::ErrorCode::AuthRequired => "rejected",
                         Err(_) => "unreachable",
@@ -166,7 +166,7 @@ fn test(name: String) -> Result<()> {
     };
 
     let client = Client::new(&creds.api_key, &creds.api_secret, false);
-    client.get("domains?take=1")?;
+    client.get("domains?take=1&skip=0")?;
 
     output::write(&obj! {
         "account" => stored_name,

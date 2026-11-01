@@ -71,7 +71,7 @@ pub fn run(args: LoginArgs) -> Result<()> {
     if !args.no_verify {
         let client = Client::new(&api_key, &api_secret, false);
         // Test credentials by requesting a 1-item domain list
-        let _ = client.get("domains?take=1")?;
+        let _ = client.get("domains?take=1&skip=0")?;
     }
 
     store.set(&secrets::account_key(&name), &SecretEntry { api_key: api_key.clone(), api_secret })?;
